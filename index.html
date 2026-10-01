@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мудрость...</title>
+    <style>
+        :root {
+            --bg: #f4f1ea;
+            --card-bg: #ffffff;
+            --text: #2c2c2c;
+            --accent: #d35400;
+            --border: #e0dcd3;
+            --shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Georgia', serif; }
+        
+        body { background: var(--bg); color: var(--text); padding: 20px; line-height: 1.6; }
+        
+        .container { max-width: 800px; margin: 0 auto; }
+        
+        h1 { text-align: center; margin-bottom: 30px; font-weight: normal; letter-spacing: 1px; }
+
+        /* Табы мудрецов */
+        .tabs { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 20px; scrollbar-width: none; }
+        .tab { 
+            padding: 10px 20px; 
+            background: var(--card-bg); 
+            border: 1px solid var(--border); 
+            border-radius: 20px; 
+            cursor: pointer; 
+            white-space: nowrap;
+            transition: all 0.3s ease;
+        }
+        .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+        /* Карточки цитат */
+        .quotes-grid { display: grid; gap: 15px; }
+        .quote-card {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s;
+            border-left: 3px solid transparent;
+        }
+        .quote-card:hover { transform: translateY(-2px); border-left-color: var(--accent); }
+        .quote-text { font-size: 1.1rem; font-style: italic; }
+        .copy-hint { 
+            position: absolute; top: 10px; right: 15px; 
+            font-size: 0.7rem; opacity: 0; transition: opacity 0.3s; color: #999; font-family: sans-serif;
+        }
+        .quote-card:hover .copy-hint { opacity: 1; }
+
+        /* Форма добавления */
+        .add-form {
+            margin-top: 40px; padding: 25px;
+            background: var(--card-bg); border-radius: 12px;
+            box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 15px;
+        }
+        .add-form input, .add-form textarea {
+            padding: 12px; border: 1px solid var(--border);
+            border-radius: 8px; font-size: 1rem; background: #faf9f6;
+        }
+        .add-form button {
+            padding: 12px; background: var(--accent); color: white;
+            border: none; border-radius: 8px; cursor: pointer; font-size: 1rem;
+        }
+
+        /* Уведомление */
+        .toast {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: #2c2c2c; color: white; padding: 10px 25px;
+            border-radius: 20px; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+            font-family: sans-serif; font-size: 0.9rem;
+        }
+        .toast.show { opacity: 1; }
+
+        @media (max-width: 600px) {
+            .quote-card { padding: 20px; }
+            h1 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📜 Мудрость...</h1>
+    
+    <div class="tabs" id="tabs"></div>
+    <div class="quotes-grid" id="quotesGrid"></div>
+
+    <!-- <div class="add-form">
+        <h3 style="font-weight:normal; margin-bottom:5px;">Добавить новую мудрость</h3>
+        <input type="text" id="newSage" placeholder="Имя мудреца (например: Лао Цзыпь Пельмень)">
+        <textarea id="newQuote" rows="3" placeholder="Текст абсурдной цитаты..."></textarea>
+        <button onclick="addQuote()">Добавить в скрижали</button>
+    </div> -->
+</div>
+
+<div class="toast" id="toast">Скопировано с именем мудреца!</div>
+
+<script>
+    // База данных мудрецов (можно расширять)
+    const sagesData = {
+        "Бодхидхарма Борщевик": [
+            "Два рубля — это в два раза больше, чем один рубль, но в четыре раза меньше, чем восемь",
+            "Если стоять на одной ноге, то вторая нога будет свободна",
+            "Тот, кто дышит, обычно не задыхается",
+            "Вчерашний день был вчера, а завтрашний ещё не сегодня",
+            "Если открыть дверь, то она перестанет быть закрытой",
+            "Мокрая вода суше, чем сухая вода, потому что её нет",
+            "Один пельмень — это половина двух пельменей, но целый один"
+        ],
+        "Лао Цзыпь Пельмень": [
+            "Пустая тарелка полнее, чем полная пустота",
+            "Тесто не спрашивает, зачем ему быть тестом",
+            "Кто лепит пельмени быстро, тот ест их медленно",
+            "Начинка внутри, потому что снаружи её нет"
+        ],
+        "Конфуций Картофелиевич": [
+            "Картошка не виновата, что она картошка",
+            "Тот, кто чистит картошку, уже не тот, кто её ел",
+            "Жареная картошка вкуснее сырой, если она жареная",
+            "Кожура защищает картофель от отсутствия кожуры"
+        ],
+        "Кап итаноч евидность": [
+    "Если ты видишь предмет, значит он не невидимый",
+    "Вода мокрая только когда она не сухая",
+    "Тот, кто родился, уже не нерождённый",
+    "Два плюс два равно четырём, если считать правильно",
+    "Ночь наступает, когда день заканчивается",
+    "Тяжёлый камень тяжелее лёгкого пера",
+    "Если закрыть глаза, то видно меньше, чем с открытыми",
+    "Мёртвый человек не живой, а живой не мёртвый",
+    "Зима холоднее лета, потому что температура ниже",
+    "Тот, кто молчит, не говорит ничего"
+]
+    };
+
+    let currentSage = Object.keys(sagesData)[0];
+
+    // Рендер табов
+    function renderTabs() {
+        const tabsEl = document.getElementById('tabs');
+        tabsEl.innerHTML = '';
+        Object.keys(sagesData).forEach(sage => {
+            const tab = document.createElement('div');
+            tab.className = `tab ${sage === currentSage ? 'active' : ''}`;
+            tab.textContent = sage;
+            tab.onclick = () => { currentSage = sage; renderTabs(); renderQuotes(); };
+            tabsEl.appendChild(tab);
+        });
+    }
+
+    // Рендер цитат
+    function renderQuotes() {
+        const grid = document.getElementById('quotesGrid');
+        grid.innerHTML = '';
+        sagesData[currentSage].forEach(text => {
+            const card = document.createElement('div');
+            card.className = 'quote-card';
+            card.innerHTML = `
+                <div class="quote-text">«${text}»</div>
+                <div class="copy-hint">нажми чтобы скопировать</div>
+            `;
+            card.onclick = () => copyWithSage(text, currentSage);
+            grid.appendChild(card);
+        });
+    }
+
+    // Копирование с автоматическим добавлением имени
+    async function copyWithSage(text, sage) {
+        const fullText = `«${text}»\n— ${sage}`;
+        try {
+            await navigator.clipboard.writeText(fullText);
+            showToast();
+        } catch (err) {
+            // Фолбэк для старых браузеров
+            const ta = document.createElement('textarea');
+            ta.value = fullText;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showToast();
+        }
+    }
+
+    // Добавление новой цитаты
+    function addQuote() {
+        const sageInput = document.getElementById('newSage');
+        const quoteInput = document.getElementById('newQuote');
+        const sageName = sageInput.value.trim();
+        const quoteText = quoteInput.value.trim();
+
+        if (!sageName || !quoteText) return alert('Заполни оба поля, о юный падаван!');
+
+        if (!sagesData[sageName]) sagesData[sageName] = [];
+        sagesData[sageName].push(quoteText);
+        
+        currentSage = sageName;
+        renderTabs();
+        renderQuotes();
+        
+        sageInput.value = '';
+        quoteInput.value = '';
+        
+        // Прокрутка к новой цитате
+        setTimeout(() => {
+            const cards = document.querySelectorAll('.quote-card');
+            cards[cards.length - 1]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+    }
+
+    function showToast() {
+        const toast = document.getElementById('toast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    // Инициализация
+    renderTabs();
+    renderQuotes();
+</script>
+
+</body>
+  </html>
